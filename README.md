@@ -18,8 +18,8 @@ system as `ai-stack` with the GPU inference tier replaced by cloud providers:
 | | ai-stack (local tier) | office-inference-cloud (this repo) |
 |---|---|---|
 | Chat model | Qwen3-14B/32B local (llama.cpp) | Kimi K2.6 via LiteLLM (Moonshot default; OpenAI/Anthropic/Gemini one line away) |
-| Embeddings | bge-m3 local (TEI) | text-embedding-3-large via LiteLLM (OpenAI — Moonshot has no embeddings API, so two provider keys) |
-| Reranker | bge-reranker-v2-m3 local | off by default (Cohere optional) |
+| Embeddings | bge-m3 local (TEI) | **bge-m3 local too** (TEI on CPU — no GPU, no key) |
+| Reranker | bge-reranker-v2-m3 local | **bge-reranker-v2-m3 local too** (TEI on CPU) |
 | GPU required | yes | **no** |
 | Guardrails / RAG / ACL / ingestion / workflows | ✅ | ✅ identical components |
 | Data leaves the building | **never** | **yes** — queries + retrieved excerpts + embeddings go to the provider |
@@ -27,16 +27,18 @@ system as `ai-stack` with the GPU inference tier replaced by cloud providers:
 ## The privacy boundary (read before selling/deploying)
 
 This variant exists for businesses that accept cloud processing. Per request, the
-provider receives: the user's message, conversation history, retrieved document
-excerpts, and embedding inputs. **Stored state stays on your box** (Qdrant vectors,
-Postgres, accounts, workflows, documents). Need zero egress? That's
+provider (Moonshot) receives: the user's message, conversation history, and retrieved
+document excerpts. Embeddings and reranking run **locally** (CPU TEI) — only the chat
+call leaves the box. **Stored state stays on your box** (Qdrant vectors, Postgres,
+accounts, workflows, documents). Need zero egress? That's
 [`ai-stack`](https://github.com/privateInferenceAI/ai-stack).
 
 ## Architecture
 
-7 containers on a Docker network (`oi-net`): **open-webui** (:3000, chat UI) →
+9 containers on a Docker network (`oi-net`): **open-webui** (:3000, chat UI) →
 **guardrails function** (denial + meta-gate + ACL'd RAG, PII redaction) →
-**litellm** (:4000, gateway) → cloud provider. **qdrant** (vectors),
+**litellm** (:4000, gateway) → Moonshot (chat only). **qdrant** (vectors),
+**embeddings + reranker** (local CPU TEI — bge-m3 + bge-reranker, no GPU/key),
 **postgres** (gateway DB), **ingestion** (periodic document worker), **n8n**
 (:5678, workflows), **mailpit** (:8025, demo SMTP). No GPU; runs on a small VPS.
 
@@ -48,7 +50,7 @@ sudo mkdir -p /opt/office-inference && sudo chown $USER:$USER /opt/office-infere
 cd /opt/office-inference
 sudo docker network create oi-net
 sudo bash genenv.sh
-sudo $EDITOR /opt/office-inference/.env     # set MOONSHOT_API_KEY + OPENAI_API_KEY
+sudo $EDITOR /opt/office-inference/.env     # set MOONSHOT_API_KEY (the only provider key)
 docker compose build ingestion
 docker compose up -d
 ```
@@ -57,16 +59,16 @@ Then the same browser wiring as ai-stack: create the WebUI admin (first account)
 disable signups → mint two virtual keys (`POST /key/generate` on :4000 with the
 master key from `.env`) into `WEBUI_VIRTUAL_KEY` / `N8N_VIRTUAL_KEY` →
 force-recreate open-webui + n8n → import `guardrails/guardrails-function.py`
-(Functions → enable + GLOBAL → Valves: `qdrant_api_key` **and** `embed_api_key`
-= `LITELLM_MASTER_KEY` from `.env`) → n8n owner + credentials → import the
+(Functions → enable + GLOBAL → Valves: `qdrant_api_key`
+from `.env`) → n8n owner + credentials → import the
 invoice workflow from `exports/`.
 
 ## What's here
 
 ```
-docker-compose.yml     7 services, no GPU
+docker-compose.yml     9 services, no GPU (embeddings + reranker on CPU)
 litellm/config.yaml    company-ai + company-embed aliases → provider models
-genenv.sh              generates .env (openssl secrets; you add MOONSHOT_API_KEY + OPENAI_API_KEY)
+genenv.sh              generates .env (openssl secrets; you add MOONSHOT_API_KEY only)
 guardrails/            policy.txt + guardrails-function.py (vendored from ai-stack, cloud-adapted)
 ingestion/             periodic document worker (vendored from ai-stack, cloud-adapted)
 docs/ARCHITECTURE.md   shared-vs-different map, sync policy, model notes
@@ -74,6 +76,6 @@ docs/ARCHITECTURE.md   shared-vs-different map, sync policy, model notes
 
 ## Roadmap
 
-Cohere rerank via LiteLLM • provider STT or speaches-cpu voice • build scripts
+provider STT or speaches-cpu voice • build scripts
 (pathb equivalent) • eval harness • n8n workflow library • quarterly upstream
 review (watch lives in ai-stack's tech watch).

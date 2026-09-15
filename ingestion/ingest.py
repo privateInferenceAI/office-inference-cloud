@@ -31,8 +31,8 @@ import requests
 # --- Config (from environment) ---
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://qdrant:6333")
 QDRANT_API_KEY = os.environ["QDRANT_API_KEY"]
-EMBED_URL = os.environ.get("EMBED_URL", "http://litellm:4000/v1")
-EMBED_MODE = os.environ.get("EMBED_MODE", "openai")     # "openai" (via LiteLLM) or "tei" (local TEI, ai-stack)
+EMBED_URL = os.environ.get("EMBED_URL", "http://embeddings:80")
+EMBED_MODE = os.environ.get("EMBED_MODE", "tei")        # "tei" (local TEI, default here) or "openai" (via LiteLLM)
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "company-embed")   # used when EMBED_MODE=openai
 EMBED_API_KEY = os.environ.get("EMBED_API_KEY", "")            # used when EMBED_MODE=openai
 COLLECTION = "company_docs"
@@ -41,7 +41,7 @@ DOCS_ROOT = "/documents"
 ACL_FOLDERS = ("company", "executive")
 CHUNK_SIZE = 512        # characters per chunk (simple char chunking)
 CHUNK_OVERLAP = 64
-VECTOR_SIZE = int(os.environ.get("VECTOR_SIZE", "3072"))  # 3072 text-embedding-3-large (cloud); 1024 bge-m3 (ai-stack)
+VECTOR_SIZE = int(os.environ.get("VECTOR_SIZE", "1024"))  # 1024 bge-m3 (local TEI); 3072 text-embedding-3-large (openai mode)
 
 HEADERS = {"api-key": QDRANT_API_KEY, "Content-Type": "application/json"}
 

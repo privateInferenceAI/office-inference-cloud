@@ -87,11 +87,9 @@ services:
     environment:
       QDRANT_URL: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY}
-      EMBED_URL: http://litellm:4000/v1
-      EMBED_MODE: openai
-      EMBED_MODEL: company-embed
-      EMBED_API_KEY: ${LITELLM_MASTER_KEY}
-      VECTOR_SIZE: "3072"            # text-embedding-3-large
+      EMBED_URL: http://embeddings:80
+      EMBED_MODE: tei
+      VECTOR_SIZE: "1024"            # bge-m3 — same as ai-stack
       INGEST_INTERVAL_SECONDS: ${INGEST_INTERVAL_SECONDS:-900}
     volumes:
       - /opt/office-inference/ingestion:/app
@@ -100,6 +98,32 @@ services:
     # Periodic worker (same behavior as ai-stack): ingest at start, then every
     # INGEST_INTERVAL_SECONDS; manifest no-op + deletion reconciliation.
     command: sh -c 'while true; do python3 /app/ingest.py || echo "ingest run failed — retrying next cycle"; sleep "$$INGEST_INTERVAL_SECONDS"; done'
+    networks:
+      - oi-net
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:1.6
+    # STABLE-INFRA PIN SNAPSHOT (recorded 2026-08-07) — fallback digests if a version tag ever misbehaves.
+    # freeze: ghcr.io/huggingface/text-embeddings-inference@sha256:25e35b0b266241a543c5ee305083eced4b6ac0772eb969c3fdaae2d4c2ef7266
+    container_name: embeddings
+    restart: unless-stopped
+    # bge-m3 on CPU — small model (~1.1 GB), no GPU needed on this tier.
+    # Weights download from HF on first start into the mounted cache (deploy-time
+    # egress, once); add HF_HUB_OFFLINE=1 after pre-downloading if you want it enforced.
+    command: --model-id BAAI/bge-m3 --port 80
+    volumes:
+      - /opt/office-inference/models/tei:/data
+    networks:
+      - oi-net
+
+  reranker:
+    image: ghcr.io/huggingface/text-embeddings-inference:1.6
+    # freeze: same image as embeddings (digest comment above covers both)
+    container_name: reranker
+    restart: unless-stopped
+    command: --model-id BAAI/bge-reranker-v2-m3 --port 80
+    volumes:
+      - /opt/office-inference/models/tei:/data
     networks:
       - oi-net
 

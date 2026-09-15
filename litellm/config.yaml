@@ -15,15 +15,8 @@ model_list:
       #               gemini/gemini-3.1-pro-preview / gemini-3.8-flash (+ GEMINI_API_KEY)
       api_key: os.environ/MOONSHOT_API_KEY
 
-  # Embeddings behind the company-embed alias (guardrails + ingestion call this).
-  # NOTE: Moonshot has NO embeddings API — embeddings stay on OpenAI, so .env
-  # carries TWO provider keys (MOONSHOT_API_KEY for chat, OPENAI_API_KEY for embeddings).
-  - model_name: company-embed
-    litellm_params:
-      model: openai/text-embedding-3-large   # 3072 dims — must match ingestion VECTOR_SIZE
-      api_key: os.environ/OPENAI_API_KEY
-      # cheaper: openai/text-embedding-3-small (1536 dims → VECTOR_SIZE "1536")
-      # non-OpenAI option: voyage/voyage-embed-4 (+ VOYAGE_API_KEY)
+  # (no company-embed entry: embeddings + reranker run LOCALLY on CPU TEI,
+  #  same as ai-stack — only the chat model is cloud)
 
 litellm_settings:
   drop_params: true

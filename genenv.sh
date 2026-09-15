@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # genenv.sh — generate a FRESH .env for an Office Inference Cloud install.
-# Secrets are BORN here (openssl rand), never typed or carried — except the two
-# you bring yourself: MOONSHOT_API_KEY (chat) + OPENAI_API_KEY (embeddings).
+# Secrets are BORN here (openssl rand), never typed or carried — except the one
+# you bring yourself: MOONSHOT_API_KEY (chat). Embeddings + reranker are LOCAL
+# (CPU TEI), so Moonshot is the only provider key this stack needs.
 set -euo pipefail
 STACK=/opt/office-inference
 
@@ -10,10 +11,9 @@ gen() { openssl rand -hex 24; }   # 48 hex chars, URL-safe
 PGPASS=$(gen); WEBUISEC=$(gen); QDRANT=$(gen); N8NENC=$(gen)
 
 sudo tee "$STACK/.env" >/dev/null <<EOF
-# --- Section 1: cloud providers (YOU fill these in — the only secrets you bring) ---
-# Moonshot (chat: kimi-k2.6) — Moonshot has no embeddings API, so embeddings use OpenAI.
+# --- Section 1: cloud provider (YOU fill this in — the only secret you bring) ---
+# Moonshot (chat: kimi-k2.6). Embeddings + reranker run locally (CPU TEI) — no key needed.
 MOONSHOT_API_KEY=PENDING_USER
-OPENAI_API_KEY=PENDING_USER
 
 # --- Section 3: LiteLLM gateway ---
 LITELLM_MASTER_KEY=sk-$(gen)
@@ -36,16 +36,16 @@ EOF
 sudo chmod 600 "$STACK/.env"
 sudo chown "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$STACK/.env"
 
-# verify: 11 keys, none empty
+# verify: 10 keys, none empty
 # (the count pattern must include 0-9 or the digit-bearing N8N_* keys don't count)
 MISSING=$(sudo grep -cE '=$' "$STACK/.env" || true)
 COUNT=$(sudo grep -cE '^[A-Z0-9_]+=' "$STACK/.env" || true)
 echo "genenv: wrote $STACK/.env (mode 600). keys=$COUNT empty=$MISSING"
-[[ "$COUNT" -ge 11 && "$MISSING" -eq 0 ]] || { echo "ERROR: env incomplete"; exit 1; }
+[[ "$COUNT" -ge 10 && "$MISSING" -eq 0 ]] || { echo "ERROR: env incomplete"; exit 1; }
 
 echo
 echo "NEXT:"
-echo "  1. edit $STACK/.env and set MOONSHOT_API_KEY + OPENAI_API_KEY"
+echo "  1. edit $STACK/.env and set MOONSHOT_API_KEY"
 echo "  2. docker network create oi-net   (once per host)"
 echo "  3. cd $STACK && docker compose build ingestion && docker compose up -d"
 echo "  4. mint the WebUI + n8n virtual keys (see README quick start)"

@@ -18,9 +18,6 @@ CHANGELOG:
         questions", "what did I just ask", "do you remember") skip retrieval entirely —
         history answers those, and injected chunks can only distract. Deterministic
         behavior for meta-questions, enforced by code, not by hoping the model copes.
-
-CLOUD VARIANT (office-inference-cloud): embeddings via LiteLLM (embed_mode/embed_model/
-embed_api_key valves); enable_rerank defaults False (no local reranker).
 """
 
 from pydantic import BaseModel, Field
@@ -61,26 +58,14 @@ class Filter:
         qdrant_collection: str = Field(
             default="company_docs", description="Qdrant collection."
         )
-        # CLOUD VARIANT (office-inference-cloud): embeddings come via the LiteLLM
-        # gateway (OpenAI-style /embeddings), not a local TEI service.
         embed_url: str = Field(
-            default="http://litellm:4000/v1", description="Embeddings base URL (LiteLLM gateway)."
-        )
-        embed_mode: str = Field(
-            default="openai", description="'tei' (local TEI) or 'openai' (OpenAI-compatible /embeddings)."
-        )
-        embed_model: str = Field(
-            default="company-embed", description="Embedding model name sent when embed_mode=openai."
-        )
-        embed_api_key: str = Field(
-            default="", description="API key for the embeddings endpoint (LiteLLM key) when embed_mode=openai."
+            default="http://embeddings:80", description="Embeddings base URL."
         )
         rerank_url: str = Field(
             default="http://reranker:80", description="Reranker base URL."
         )
-        # CLOUD VARIANT: no local reranker — off by default (Cohere via LiteLLM is the upgrade path)
         enable_rerank: bool = Field(
-            default=False, description="Re-rank retrieved chunks before injection."
+            default=True, description="Re-rank retrieved chunks before injection."
         )
         qdrant_api_key: str = Field(
             default=os.environ.get("QDRANT_API_KEY", ""),
@@ -129,16 +114,6 @@ class Filter:
         return any(k in t for k in kws)
 
     def _embed(self, text: str):
-        # CLOUD VARIANT: OpenAI-style embeddings via the LiteLLM gateway.
-        if getattr(self.valves, "embed_mode", "tei") == "openai":
-            resp = requests.post(
-                f"{self.valves.embed_url}/embeddings",
-                headers={"Authorization": f"Bearer {self.valves.embed_api_key}"},
-                json={"model": self.valves.embed_model, "input": [text]},
-                timeout=60,
-            )
-            resp.raise_for_status()
-            return resp.json()["data"][0]["embedding"]
         resp = requests.post(
             f"{self.valves.embed_url}/embed",
             json={"inputs": [text]},
