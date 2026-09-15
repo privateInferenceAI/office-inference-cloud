@@ -1,0 +1,22 @@
+COMPANY AI — GUARDRAILS POLICY (v1.1)
+
+DENIED TOPICS (input is refused with a polite redirect):
+  - payroll_individual : questions about a specific person salary or pay
+
+PII REDACTION (output is scanned and redacted before display):
+  - SSN pattern (###-##-####)
+
+INJECTION DEFENSE (input is refused):
+  - attempts to override instructions ("ignore previous instructions", "you are now", "system:")
+
+NOTE: these rules are enforced by CODE on every message, not by asking the AI nicely.
+
+CLIENT CUSTOMIZATION: this policy is a TEMPLATE. Denied topics, keywords, and PII
+patterns are expected to differ per client and must be tailored at deployment time —
+see docs/guardrails-customization.md. This file is the human-readable contract; the
+actual enforcement lives in guardrails-function.py (its valves). The two MUST stay
+in sync — whatever this file promises, the code must do.
+
+(v1.1: removed legal_advice from DENIED TOPICS — it is too phrasing-dependent for
+substring matching, and each client's legal boundaries differ. Add it per client
+where required; see the customization guide.)

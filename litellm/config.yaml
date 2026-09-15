@@ -1,0 +1,29 @@
+# LiteLLM gateway config — Office Inference Cloud
+# The whole point of this variant: the model is a part number, not an architecture.
+# Swap provider/model here; the rest of the stack (guardrails, RAG, workflows) is unchanged.
+
+model_list:
+  # Chat model behind the company-ai alias (the ONLY name clients see).
+  # Identifiers verified against vendor docs 2026-09-15 — re-verify before each deploy.
+  - model_name: company-ai
+    litellm_params:
+      model: openai/gpt-5.6-sol          # workhorse ($4/$20 per 1M).
+      # flagship: openai/gpt-6-astra · mid: openai/gpt-5.6-terra (~$2) · cheap: openai/gpt-5.6-luna ($0.20)
+      # anthropic: anthropic/claude-fable-5-1 (flagship) / claude-opus-5 / claude-sonnet-5 (+ ANTHROPIC_API_KEY in .env)
+      # google: gemini/gemini-3.1-pro-preview / gemini-3.8-flash (+ GEMINI_API_KEY in .env)
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Embeddings behind the company-embed alias (guardrails + ingestion call this).
+  - model_name: company-embed
+    litellm_params:
+      model: openai/text-embedding-3-large   # 3072 dims — must match ingestion VECTOR_SIZE
+      api_key: os.environ/OPENAI_API_KEY
+      # cheaper: openai/text-embedding-3-small (1536 dims → VECTOR_SIZE "1536")
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

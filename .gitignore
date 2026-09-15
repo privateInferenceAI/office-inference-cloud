@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+*.pem
+*.key
+
+# Runtime data
+postgres-data/
+open-webui-data/
+qdrant-data/
+n8n-data/
+documents/
+backups/
+
+# Python
+__pycache__/
+ingestion/.ingest-manifest.json
+
+# OS junk
+.DS_Store
+Thumbs.db

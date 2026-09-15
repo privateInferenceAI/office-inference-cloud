@@ -1,0 +1,138 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    # STABLE-INFRA PIN SNAPSHOT (recorded 2026-08-07) — fallback digests if a version tag ever misbehaves.
+    # freeze: postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    container_name: litellm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - /opt/office-inference/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - oi-net
+
+  litellm:
+    image: ghcr.io/berriai/litellm@sha256:af806882b7a6ced41658db5b6a7e98ed7b9b51d03b935e0417bf1c8552d688af
+    container_name: litellm
+    restart: unless-stopped
+    env_file: /opt/office-inference/.env
+    environment:
+      USE_PRISMA_MIGRATE: "true"
+    ports:
+      - "4000:4000"
+    volumes:
+      - /opt/office-inference/litellm/config.yaml:/app/config.yaml:ro
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - oi-net
+
+  open-webui:
+    # CHANGED: pinned to digest (was :main) — this is v0.11.0
+    image: ghcr.io/open-webui/open-webui@sha256:6a773e5c3a246b65cbe74ce942b294292c0e5f81c138f703d111bc162f7d7c3d
+    container_name: open-webui
+    restart: unless-stopped
+    environment:
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${WEBUI_VIRTUAL_KEY}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      ENABLE_SIGNUP: "true"
+      DEFAULT_USER_ROLE: pending
+      ENABLE_MODEL_FILTER: "true"
+      MODEL_FILTER_LIST: company-ai
+      WEBUI_NAME: "Company AI"
+      ANONYMIZED_TELEMETRY: "false"
+    ports:
+      - "3000:8080"
+    volumes:
+      - /opt/office-inference/open-webui-data:/app/backend/data
+    depends_on:
+      - litellm
+    networks:
+      - oi-net
+
+  qdrant:
+    image: qdrant/qdrant:v1.11.3
+    # STABLE-INFRA PIN SNAPSHOT (recorded 2026-08-07) — fallback digests if a version tag ever misbehaves.
+    # freeze: qdrant/qdrant@sha256:da426bb8aa0ba0a3032b3110e71d0d1516d51a686aa17b39bde4e090ce3b8e7c
+    container_name: qdrant
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    volumes:
+      - /opt/office-inference/qdrant-data:/qdrant/storage
+    networks:
+      - oi-net
+
+  ingestion:
+    build: ./ingestion
+    container_name: ingestion
+    restart: unless-stopped
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      EMBED_URL: http://litellm:4000/v1
+      EMBED_MODE: openai
+      EMBED_MODEL: company-embed
+      EMBED_API_KEY: ${LITELLM_MASTER_KEY}
+      VECTOR_SIZE: "3072"            # text-embedding-3-large
+      INGEST_INTERVAL_SECONDS: ${INGEST_INTERVAL_SECONDS:-900}
+    volumes:
+      - /opt/office-inference/ingestion:/app
+      - /opt/office-inference/documents:/documents:ro
+    working_dir: /app
+    # Periodic worker (same behavior as ai-stack): ingest at start, then every
+    # INGEST_INTERVAL_SECONDS; manifest no-op + deletion reconciliation.
+    command: sh -c 'while true; do python3 /app/ingest.py || echo "ingest run failed — retrying next cycle"; sleep "$$INGEST_INTERVAL_SECONDS"; done'
+    networks:
+      - oi-net
+
+  n8n:
+    # CHANGED: pinned to digest (was :latest)
+    image: docker.n8n.io/n8nio/n8n@sha256:a695e1db50fe1b5acf0c8563ceeea82b099f797cfa485def02647eae1e993953
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: UTC
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    ports:
+      - "5678:5678"
+    volumes:
+      - /opt/office-inference/n8n-data:/home/node/.n8n
+    networks:
+      - oi-net
+
+  mailpit:
+    # CHANGED: pinned to digest (was :latest)
+    image: axllent/mailpit@sha256:7f33095f5c93d5db07d8a1b7f8906e4cd83dcd81a95d1f7c4b5dd0ffba4d4d
+    container_name: mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+    networks:
+      - oi-net
+
+networks:
+  oi-net:
+    external: true
