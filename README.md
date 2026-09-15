@@ -17,8 +17,8 @@ system as `ai-stack` with the GPU inference tier replaced by cloud providers:
 
 | | ai-stack (local tier) | office-inference-cloud (this repo) |
 |---|---|---|
-| Chat model | Qwen3-14B/32B local (llama.cpp) | Cloud via LiteLLM (OpenAI default; Anthropic/Gemini one line away) |
-| Embeddings | bge-m3 local (TEI) | text-embedding-3-large via LiteLLM |
+| Chat model | Qwen3-14B/32B local (llama.cpp) | Kimi K2.6 via LiteLLM (Moonshot default; OpenAI/Anthropic/Gemini one line away) |
+| Embeddings | bge-m3 local (TEI) | text-embedding-3-large via LiteLLM (OpenAI — Moonshot has no embeddings API, so two provider keys) |
 | Reranker | bge-reranker-v2-m3 local | off by default (Cohere optional) |
 | GPU required | yes | **no** |
 | Guardrails / RAG / ACL / ingestion / workflows | ✅ | ✅ identical components |
@@ -48,7 +48,7 @@ sudo mkdir -p /opt/office-inference && sudo chown $USER:$USER /opt/office-infere
 cd /opt/office-inference
 sudo docker network create oi-net
 sudo bash genenv.sh
-sudo $EDITOR /opt/office-inference/.env     # set OPENAI_API_KEY
+sudo $EDITOR /opt/office-inference/.env     # set MOONSHOT_API_KEY + OPENAI_API_KEY
 docker compose build ingestion
 docker compose up -d
 ```
@@ -66,7 +66,7 @@ invoice workflow from `exports/`.
 ```
 docker-compose.yml     7 services, no GPU
 litellm/config.yaml    company-ai + company-embed aliases → provider models
-genenv.sh              generates .env (openssl secrets; you add OPENAI_API_KEY)
+genenv.sh              generates .env (openssl secrets; you add MOONSHOT_API_KEY + OPENAI_API_KEY)
 guardrails/            policy.txt + guardrails-function.py (vendored from ai-stack, cloud-adapted)
 ingestion/             periodic document worker (vendored from ai-stack, cloud-adapted)
 docs/ARCHITECTURE.md   shared-vs-different map, sync policy, model notes

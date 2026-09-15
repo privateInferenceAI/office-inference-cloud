@@ -7,18 +7,23 @@ model_list:
   # Identifiers verified against vendor docs 2026-09-15 — re-verify before each deploy.
   - model_name: company-ai
     litellm_params:
-      model: openai/gpt-5.6-sol          # workhorse ($4/$20 per 1M).
-      # flagship: openai/gpt-6-astra · mid: openai/gpt-5.6-terra (~$2) · cheap: openai/gpt-5.6-luna ($0.20)
-      # anthropic: anthropic/claude-fable-5-1 (flagship) / claude-opus-5 / claude-sonnet-5 (+ ANTHROPIC_API_KEY in .env)
-      # google: gemini/gemini-3.1-pro-preview / gemini-3.8-flash (+ GEMINI_API_KEY in .env)
-      api_key: os.environ/OPENAI_API_KEY
+      model: moonshot/kimi-k2.6          # default chat: Kimi K2.6 (~$0.55/$2.31 per 1M).
+      # Moonshot's API is OpenAI-compatible; if a region endpoint is ever needed:
+      # api_base: https://api.moonshot.ai/v1
+      # alternatives: openai/gpt-6-astra (flagship) / gpt-5.6-sol / gpt-5.6-terra (+ OPENAI_API_KEY)
+      #               anthropic/claude-fable-5-1 / claude-opus-5 / claude-sonnet-5 (+ ANTHROPIC_API_KEY)
+      #               gemini/gemini-3.1-pro-preview / gemini-3.8-flash (+ GEMINI_API_KEY)
+      api_key: os.environ/MOONSHOT_API_KEY
 
   # Embeddings behind the company-embed alias (guardrails + ingestion call this).
+  # NOTE: Moonshot has NO embeddings API — embeddings stay on OpenAI, so .env
+  # carries TWO provider keys (MOONSHOT_API_KEY for chat, OPENAI_API_KEY for embeddings).
   - model_name: company-embed
     litellm_params:
       model: openai/text-embedding-3-large   # 3072 dims — must match ingestion VECTOR_SIZE
       api_key: os.environ/OPENAI_API_KEY
       # cheaper: openai/text-embedding-3-small (1536 dims → VECTOR_SIZE "1536")
+      # non-OpenAI option: voyage/voyage-embed-4 (+ VOYAGE_API_KEY)
 
 litellm_settings:
   drop_params: true

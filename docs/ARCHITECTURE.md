@@ -17,7 +17,7 @@ adapted, and how changes flow between the repos.
 | `ingestion/ingest.py` | + env `EMBED_MODE` (default `openai`), `EMBED_MODEL`, `EMBED_API_KEY` (LiteLLM master key via compose), `VECTOR_SIZE` (default `3072` for text-embedding-3-large); `embed()` OpenAI-style branch. Worker machinery (manifest, delta, dead-letter, reconciliation) is identical |
 | `litellm/config.yaml` | `company-ai` → cloud chat model; `company-embed` → cloud embedding model (aliases are the only names the stack sees — swap providers by editing this one file) |
 | `docker-compose.yml` | no llamacpp/embeddings/reranker (GPU tier); network `oi-net`; paths `/opt/office-inference`; ingestion gets the EMBED_* + VECTOR_SIZE env |
-| `genenv.sh` | `OPENAI_API_KEY=PENDING_USER` instead of LLAMA_API_KEY; 10 keys |
+| `genenv.sh` | `MOONSHOT_API_KEY=PENDING_USER` (chat) + `OPENAI_API_KEY=PENDING_USER` (embeddings) instead of LLAMA_API_KEY; 11 keys |
 
 ## Removed (local-tier only)
 
@@ -35,14 +35,17 @@ pre-download steps, all phase1a/phase1b GPU driver machinery.
 
 ## Model notes (verified 2026-09-15 — re-verify before each deploy)
 
-- Chat default `openai/gpt-5.6-sol` (workhorse, $4/$20 per 1M); flagship
-  `openai/gpt-6-astra`; mid `gpt-5.6-terra` (~$2); cheap `gpt-5.6-luna` ($0.20).
-- Embeddings `openai/text-embedding-3-large` (3072 dims — must match `VECTOR_SIZE`
-  in compose; the cheap option `text-embedding-3-small` is 1536).
-- Anthropic tier order: `claude-fable-5-1` > `claude-opus-5` > `claude-sonnet-5` >
-  `claude-haiku-4-5` (key: `ANTHROPIC_API_KEY` in `.env`).
-- Google: `gemini/gemini-3.1-pro-preview`, `gemini/gemini-3.8-flash`
-  (key: `GEMINI_API_KEY`).
+- **Chat default `moonshot/kimi-k2.6`** (~$0.55/$2.31 per 1M via Moonshot's
+  OpenAI-compatible API; key from platform.kimi.ai → `MOONSHOT_API_KEY`).
+  LiteLLM's `moonshot/` provider handles the endpoint; `api_base:
+  https://api.moonshot.ai/v1` is in the config as a commented fallback.
+- **Embeddings stay on OpenAI** (`text-embedding-3-large`, 3072 dims — must match
+  `VECTOR_SIZE` in compose; cheap option `text-embedding-3-small` = 1536) because
+  **Moonshot has no embeddings API** — so `.env` always carries two provider keys.
+- Alternatives: OpenAI `gpt-6-astra` (flagship) / `gpt-5.6-sol` / `gpt-5.6-terra` /
+  `gpt-5.6-luna`; Anthropic `claude-fable-5-1` > `claude-opus-5` > `claude-sonnet-5`
+  > `claude-haiku-4-5`; Google `gemini-3.1-pro-preview` / `gemini-3.8-flash`.
+  Embeddings alternatives: `voyage/voyage-embed-4` (`VOYAGE_API_KEY`).
 - Provider swaps are one-line changes in `litellm/config.yaml`. The weekly tech
   watch (ai-stack `docs/tech-watch.md`) tracks renames/deprecations.
 
