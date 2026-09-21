@@ -1,7 +1,6 @@
 # Office Inference Cloud
 
-**The full agentic business-AI stack — guardrails, RAG over company documents, and
-workflow automation — running on cloud LLMs through a LiteLLM gateway.**
+**The full agentic business-AI stack (guardrails, RAG over company documents, and workflow automation) running on cloud LLMs through a LiteLLM gateway.**
 For businesses that don't require on-prem inference.
 
 An **Office Inference** product. Companion repo to
@@ -10,26 +9,24 @@ An **Office Inference** product. Companion repo to
 
 ## The philosophy: swap the LLM, keep the system
 
-The product is the agentic layer — code-enforced guardrails, role-ACL'd RAG,
-n8n workflows — not the model. The model is a part number. This repo is the same
+The product is the agentic layer (code-enforced guardrails, role-ACL'd RAG, n8n workflows), not the model. The model is a part number. This repo is the same
 system as `ai-stack` with the GPU inference tier replaced by cloud providers:
-**everything else — guardrails, ingestion, vector store, UI, workflows — stays the same.**
+**everything else (guardrails, ingestion, vector store, UI, workflows) stays the same.**
 
 | | ai-stack (local tier) | office-inference-cloud (this repo) |
 |---|---|---|
 | Chat model | Qwen3-14B/32B local (llama.cpp) | Kimi K2.6 via LiteLLM (Moonshot default; OpenAI/Anthropic/Gemini one line away) |
-| Embeddings | bge-m3 local (TEI) | **bge-m3 local too** (TEI on CPU — no GPU, no key) |
+| Embeddings | bge-m3 local (TEI) | **bge-m3 local too** (TEI on CPU, no GPU, no key) |
 | Reranker | bge-reranker-v2-m3 local | **bge-reranker-v2-m3 local too** (TEI on CPU) |
 | GPU required | yes | **no** |
 | Guardrails / RAG / ACL / ingestion / workflows | ✅ | ✅ identical components |
-| Data leaves the building | **never** | **yes** — queries + retrieved excerpts + embeddings go to the provider |
+| Data leaves the building | **never** | **yes**: queries + retrieved excerpts + embeddings go to the provider |
 
 ## The privacy boundary (read before selling/deploying)
 
 This variant exists for businesses that accept cloud processing. Per request, the
 provider (Moonshot) receives: the user's message, conversation history, and retrieved
-document excerpts. Embeddings and reranking run **locally** (CPU TEI) — only the chat
-call leaves the box. **Stored state stays on your box** (Qdrant vectors, Postgres,
+document excerpts. Embeddings and reranking run **locally** (CPU TEI). Only the chat call leaves the box. **Stored state stays on your box** (Qdrant vectors, Postgres,
 accounts, workflows, documents). Need zero egress? That's
 [`ai-stack`](https://github.com/privateInferenceAI/ai-stack).
 
@@ -38,7 +35,7 @@ accounts, workflows, documents). Need zero egress? That's
 9 containers on a Docker network (`oi-net`): **open-webui** (:3000, chat UI) →
 **guardrails function** (denial + meta-gate + ACL'd RAG, PII redaction) →
 **litellm** (:4000, gateway) → Moonshot (chat only). **qdrant** (vectors),
-**embeddings + reranker** (local CPU TEI — bge-m3 + bge-reranker, no GPU/key),
+**embeddings + reranker** (local CPU TEI: bge-m3 + bge-reranker, no GPU/key),
 **postgres** (gateway DB), **ingestion** (periodic document worker), **n8n**
 (:5678, workflows), **mailpit** (:8025, demo SMTP). No GPU; runs on a small VPS.
 
